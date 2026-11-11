@@ -1,16 +1,38 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from .managers import UserManager
 
 class User(AbstractUser):
     class Role(models.TextChoices):
+        ADMIN = "admin", "Admin"
         EMPLOYER = "employer", "Employer"
         CANDIDATE = "candidate", "Candidate"
-        ADMIN = "admin", "Admin"
 
+    username = None
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=20, choices=Role.choices, default=Role.CANDIDATE)
+    phone = models.CharField(max_length=15, blank=True)
+    role = models.CharField(max_length=20, choices=Role.choices)
+    is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
+
+    objects = UserManager()
+
+    @property
+    def is_admin_role(self):
+        return self.role == self.Role.ADMIN
+
+    @property
+    def is_employer(self):
+        return self.role == self.Role.EMPLOYER
+
+    @property
+    def is_candidate(self):
+        return self.role == self.Role.CANDIDATE
 
     def __str__(self):
         return self.email
