@@ -2,8 +2,9 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import generics, permissions
 from .models import Job
-from .serializers import JobSerializer
+from .serializers import JobSerializer, RegisterSerializer
 from rest_framework import status
 
 def home(request):
@@ -43,3 +44,7 @@ class JobCreateAPI(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+        
+class RegisterView(generics.CreateAPIView):
+    serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
