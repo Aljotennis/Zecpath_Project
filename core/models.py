@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from .validators import validate_resume_file
 from .managers import UserManager
 
 class User(AbstractUser):
@@ -38,31 +39,62 @@ class User(AbstractUser):
         return self.email
 
 
+
 class Employer(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employer")
+    class CompanySize(models.TextChoices):
+        SMALL = "small", "1-50 employees"
+        MEDIUM = "medium", "51-200 employees"
+        LARGE = "large", "201-1000 employees"
+        ENTERPRISE = "enterprise", "1000+ employees"
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="employer"
+    )
     company_name = models.CharField(max_length=200)
     industry = models.CharField(max_length=100, blank=True)
+    domain = models.CharField(max_length=100, blank=True)
+    company_size = models.CharField(
+        max_length=20,
+        choices=CompanySize.choices,
+        blank=True
+    )
     website = models.URLField(blank=True)
     location = models.CharField(max_length=200)
+    is_verified = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.company_name
 
 
 class Candidate(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="candidate")
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="candidate"
+    )
     full_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=15, blank=True)
-    resume = models.FileField(upload_to="resumes/", blank=True)
+    resume = models.FileField(upload_to="resumes/", validators= [validate_resume_file], blank=True,null=True)
     skills = models.TextField(blank=True)
+    education = models.TextField(blank=True)
+    experience = models.TextField(blank=True)
+    expected_salary = models.DecimalField(max_digits=10,decimal_places=2,null=True,blank=True)
+    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.full_name
+    
 
 
 class Job(models.Model):
+
     class JobType(models.TextChoices):
         FULL_TIME = "full_time", "Full time"
         PART_TIME = "part_time", "Part time"
@@ -74,23 +106,57 @@ class Job(models.Model):
         OPEN = "open", "Open"
         CLOSED = "closed", "Closed"
 
-    employer = models.ForeignKey(Employer, on_delete=models.CASCADE, related_name="jobs")
+    employer = models.ForeignKey(
+        Employer,
+        on_delete=models.CASCADE,
+        related_name="jobs"
+    )
+
     title = models.CharField(max_length=200)
     description = models.TextField()
+    skills = models.TextField(blank=True)
+    experience = models.CharField(max_length=100, blank=True)
+
     location = models.CharField(max_length=100)
-    job_type = models.CharField(max_length=20, choices=JobType.choices, default=JobType.FULL_TIME)
-    salary_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    salary_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+
+    job_type = models.CharField(
+        max_length=20,
+        choices=JobType.choices,
+        default=JobType.FULL_TIME
+    )
+
+    salary_min = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True
+    )
+
+    salary_max = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        indexes = [models.Index(fields=["status"])]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["created_at"]),
+        ]
+
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(salary_max__gte=models.F("salary_min"))
-                | models.Q(salary_min__isnull=True)
-                | models.Q(salary_max__isnull=True),
+                condition=(
+                    models.Q(salary_max__gte=models.F("salary_min"))
+                    | models.Q(salary_min__isnull=True)
+                    | models.Q(salary_max__isnull=True)
+                ),
                 name="job_salary_max_gte_min",
             )
         ]
